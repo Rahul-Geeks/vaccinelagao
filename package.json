@@ -1,0 +1,20 @@
+{
+  "name": "cowin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "samshubbu",
+  "license": "ISC",
+  "devDependencies": {
+    "dotenv": "^9.0.2",
+    "express": "^4.17.1",
+    "moment": "^2.29.1",
+    "node-schedule": "^2.0.0",
+    "node-telegram-bot-api": "^0.53.0",
+    "request": "^2.88.2",
+    "twitter": "^1.7.1"
+  }
+}
