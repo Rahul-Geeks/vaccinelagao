@@ -71,8 +71,8 @@ let getVaccineDoses = () => {
 }
 
 // Get vaccine info in every few seconds
-setInterval(getVaccineDoses, 10000 * 3);
-// setInterval(getVaccineDoses, 3000);
+// setInterval(getVaccineDoses, 10000 * 3);
+setInterval(getVaccineDoses, 3000);
 
 // Informing twitter about vaccine
 let informTwitter = (capacity, centerName, date) => {
