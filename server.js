@@ -17,7 +17,7 @@ let app = express();
 
 // Get the information if vaccine doses are available
 let getVaccineDoses = () => {
-    let date = moment(new Date());
+    let date = moment(new Date()).tz('Asia/Kolkata');
     let today = date.format('DD-MM-YYYY');      // Today's date
 
     // Make a request to CoWin server
