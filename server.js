@@ -110,7 +110,7 @@ let informTelegram = (capacity, centerName, date) => {
     if (!telegram_msg.includes(msg)) {
         telegram_msg.push(msg);     // Keep the track of messages so that same message don't sent again
 
-        telegram.sendMessage(config.telegram.chat_id, msg).then(success => console.log("Message sent to telegram"))
+        telegram.sendMessage(config.telegram.channel_id, msg).then(success => console.log("Message sent to telegram"))
             .catch(error => console.log("ERROR while sending message to telegram", error));
     }
     else {
