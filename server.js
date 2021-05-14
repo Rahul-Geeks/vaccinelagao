@@ -10,10 +10,11 @@ let config = require("./config");
 let twitter = new TwitterBot(config.twitter);
 
 // Setting telegram configuration
-let telegramToken = config.telegram;
+let telegramToken = config.telegram.token;
 let telegram = new TelegramBot(telegramToken, { polling: true });
 
 let app = express();
+let telegram_msg = [];
 
 // Get the information if vaccine doses are available
 let getVaccineDoses = () => {
@@ -48,11 +49,11 @@ let getVaccineDoses = () => {
                 if (filSessions[0])
                     activeSessions = activeSessions.concat(filSessions);
             });
-            console.log(activeSessions);
+            console.log("\n", activeSessions);
 
             // If atleast one session found
             if (activeSessions[0]) {
-                console.log("YES, FOUND AN ACTIVE SESSION");
+                console.log("YES, FOUND AN ACTIVE SESSION", date.format('LT'));
                 console.log(activeSessions[0].session_id);
 
                 // Inform twitter and telegram users about vaccine availibility
@@ -100,10 +101,21 @@ let bookAppointment = () => {
 
 // Informing telegram about vaccine
 let informTelegram = (capacity, centerName, date) => {
-    telegram.sendMessage('-583948379', `Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.
+    let msg = `Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.
     Center: ${centerName}
     Slots available: ${capacity}
-    Date: ${date}`);
+    Date: ${date}`
+
+    // Check if same message is already sent
+    if (!telegram_msg.includes(msg)) {
+        telegram_msg.push(msg);     // Keep the track of messages so that same message don't sent again
+
+        telegram.sendMessage(config.telegram.chat_id, msg).then(success => console.log("Message sent to telegram"))
+            .catch(error => console.log("ERROR while sending message to telegram", error));
+    }
+    else {
+        console.log("Already sent this message to telegram");
+    }
 }
 
 // Run server
