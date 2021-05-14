@@ -82,6 +82,7 @@ let informTwitter = (capacity, centerName, date) => {
         Center: ${centerName}
         Slots available: ${capacity}
         Date: ${date}
+        CoWin: https://selfregistration.cowin.gov.in
         #CovidIndia #CovidVaccineIndia #Hoshangabad`
     }, (error, tweet, response) => {
         if (error)
@@ -104,7 +105,8 @@ let informTelegram = (capacity, centerName, date) => {
     let msg = `Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.
     Center: ${centerName}
     Slots available: ${capacity}
-    Date: ${date}`
+    Date: ${date}
+    CoWin: https://selfregistration.cowin.gov.in`
 
     // Check if same message is already sent
     if (!telegram_msg.includes(msg)) {
