@@ -2,9 +2,11 @@ const request = require("request");
 const TwitterBot = require("twitter");
 const moment = require("moment-timezone");
 const express = require("express");
+const nodemailer = require("nodemailer");
 const TelegramBot = require('node-telegram-bot-api');
 
 let config = require("./config");
+let data = require("./data.json");
 
 // Setting twitter configuration
 let twitter = new TwitterBot(config.twitter);
@@ -14,7 +16,17 @@ let telegramToken = config.telegram.token;
 let telegram = new TelegramBot(telegramToken, { polling: true });
 
 let app = express();
-let telegram_msg = [];
+let messages = [];      // Keep telegram & Email messages here
+
+// Create a transporter to send the mail
+let transport = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    auth: {
+        user: config.email.user,
+        pass: config.email.pwd
+    }
+});
 
 // Get the information if vaccine doses are available
 let getVaccineDoses = () => {
@@ -56,10 +68,11 @@ let getVaccineDoses = () => {
                 console.log("YES, FOUND AN ACTIVE SESSION", date.format('LT'));
                 console.log(activeSessions[0].session_id);
 
-                // Inform twitter and telegram users about vaccine availibility
+                // Inform twitter, telegram and email users about vaccine availibility
                 activeSessions.forEach(s => {
                     informTwitter(s.available_capacity, s.center, s.date);
                     informTelegram(s.available_capacity, s.center, s.date);
+                    sendMail(s.available_capacity, s.center, s.date);
                 });
             }
             else {
@@ -106,17 +119,44 @@ let informTelegram = (capacity, centerName, date) => {
     Center: ${centerName}
     Slots available: ${capacity}
     Date: ${date}
-    CoWin: https://selfregistration.cowin.gov.in`
+    CoWin: https://selfregistration.cowin.gov.in`;
 
     // Check if same message is already sent
-    if (!telegram_msg.includes(msg)) {
-        telegram_msg.push(msg);     // Keep the track of messages so that same message don't sent again
+    if (!messages.includes(msg)) {
+        messages.push(msg);     // Keep the track of messages so that same message don't sent again
 
         telegram.sendMessage(config.telegram.channel_id, msg).then(success => console.log("Message sent to telegram"))
             .catch(error => console.log("ERROR while sending message to telegram", error));
     }
     else {
         console.log("Already sent this message to telegram");
+    }
+}
+
+// Send email notifications to users
+let sendMail = (capacity, centerName, date) => {
+
+    // HTML message
+    let msgHTML = `<h1>Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.</h1><br>
+    Center: ${centerName}<br>
+    Slots available: ${capacity}<br>
+    Date: ${date}<br>
+    CoWin: https://selfregistration.cowin.gov.in`;
+
+    // Check if same email messsage is not already sent
+    if (!messages.includes(msgHTML)) {
+        messages.push(msgHTML);     // Add message to the message list
+
+        // Send mail
+        transport.sendMail({
+            from: '"Rahul Chouhan" <rahul.testing12@gmail.com>', // sender address
+            to: JSON.stringify(data.user_emails), // list of receivers
+            subject: "Vaccination Alert", // Subject line
+            html: msgHTML, // html body
+        }, (error, result) => console.log("ERROR", error, "EMAIL SENT TO", result.accepted));
+    }
+    else {
+        console.log("Already sent this message to Email");
     }
 }
 

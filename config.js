@@ -10,5 +10,9 @@ module.exports = {
     telegram: {
         token: process.env.TELEGRAM_TOKEN,
         channel_id: process.env.TELEGRAM_CHANNEL_ID
+    },
+    email: {
+        user: process.env.EMAIL_ID,
+        pwd: process.env.EMAIL_PWD
     }
 };
