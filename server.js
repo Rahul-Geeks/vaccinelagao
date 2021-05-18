@@ -16,6 +16,8 @@ let telegram = new TelegramBot(telegramToken, { polling: true });
 let app = express();
 let telegram_msg = [];
 
+let earlyAlertDate = "";        // Keep latest date of early alert message sent
+
 // Get the information if vaccine doses are available
 let getVaccineDoses = () => {
     let date = moment(new Date()).tz('Asia/Kolkata');
@@ -23,10 +25,10 @@ let getVaccineDoses = () => {
 
     // Make a request to CoWin server
     request({
-        uri: "https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByPin",
+        uri: "https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByDistrict",
         method: "GET",
         qs: {
-            pincode: "461001",
+            district_id: "360",     // Hoshangabad district ID
             date: today
         }
     }, (error, res, body) => {
@@ -42,6 +44,8 @@ let getVaccineDoses = () => {
                     // if (session.min_age_limit == 18 && session.available_capacity == 0) {
                     if (session.min_age_limit == 18 && session.available_capacity > 0) {
                         session.center = center.name;
+                        session.pincode = center.pincode;
+                        session.block_name = center.block_name;
                         return session;
                     }
                 });
@@ -58,9 +62,16 @@ let getVaccineDoses = () => {
 
                 // Inform twitter and telegram users about vaccine availibility
                 activeSessions.forEach(s => {
-                    informTwitter(s.available_capacity, s.center, s.date);
-                    informTelegram(s.available_capacity, s.center, s.date);
+                    if (s.available_capacity > 10)      // Inform twitter only if slots more than 10
+                        informTwitter(s);
+                    informTelegram(s);
                 });
+                if (earlyAlertDate != today) {
+                    let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
+                    telegram.sendMessage(config.telegram.channel_id, msg);
+                    earlyAlertDate = today;
+                    console.log("Sending early alert", earlyAlertDate);
+                }
             }
             else {
                 console.log("NOT AVAILABLE", date.format('LT'));
@@ -76,14 +87,9 @@ let getVaccineDoses = () => {
 setInterval(getVaccineDoses, 3000);
 
 // Informing twitter about vaccine
-let informTwitter = (capacity, centerName, date) => {
+let informTwitter = (s) => {
     twitter.post('statuses/update', {
-        status: `Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.
-        Center: ${centerName}
-        Slots available: ${capacity}
-        Date: ${date}
-        CoWin: https://selfregistration.cowin.gov.in
-        #CovidIndia #CovidVaccineIndia #Hoshangabad`
+        status: `Vaccine alert in ${s.block_name} ${s.pincode}, Hoshangabad district, MP. (18-44 age)\n${s.available_capacity} slots of ${s.vaccine} available at ${s.center} on ${s.date}.\nJoin telegram https://t.me/hbadvaccine to get alerts for #Hoshangabad district, MP #MPFightsCorona #CovidVaccine`
     }, (error, tweet, response) => {
         if (error)
             console.log("TWEET ERROR", error);
@@ -101,12 +107,8 @@ let bookAppointment = () => {
 }
 
 // Informing telegram about vaccine
-let informTelegram = (capacity, centerName, date) => {
-    let msg = `Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.
-    Center: ${centerName}
-    Slots available: ${capacity}
-    Date: ${date}
-    CoWin: https://selfregistration.cowin.gov.in`
+let informTelegram = (s) => {
+    let msg = `${s.block_name} (${s.pincode})\nCenter: ${s.center}\nSlots available: ${s.available_capacity} of ${s.vaccine}\nDate: ${s.date}\nCoWin: https://selfregistration.cowin.gov.in`;
 
     // Check if same message is already sent
     if (!telegram_msg.includes(msg)) {
