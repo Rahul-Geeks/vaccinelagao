@@ -66,12 +66,12 @@ let getVaccineDoses = () => {
                         informTwitter(s);
                     informTelegram(s);
                 });
-                if (earlyAlertDate != today) {
-                    let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
-                    telegram.sendMessage(config.telegram.channel_id, msg);
-                    earlyAlertDate = today;
-                    console.log("Sending early alert", earlyAlertDate);
-                }
+                // if (earlyAlertDate != today) {
+                //     let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
+                //     telegram.sendMessage(config.telegram.channel_id, msg);
+                //     earlyAlertDate = today;
+                //     console.log("Sending early alert", earlyAlertDate);
+                // }
             }
             else {
                 console.log("NOT AVAILABLE", date.format('LT'));
