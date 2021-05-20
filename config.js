@@ -11,5 +11,8 @@ module.exports = {
         token: process.env.TELEGRAM_TOKEN,
         channel_id: process.env.TELEGRAM_CHANNEL_ID
     },
-    mongodb_url: process.env.MONGODB_URL
+    mongodb: {
+        url: process.env.MONGODB_URL,
+        dbName: process.env.DB_NAME
+    }
 };

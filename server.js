@@ -14,7 +14,7 @@ let twitter = new TwitterBot(config.twitter);
 let telegramToken = config.telegram.token;
 let telegram = new TelegramBot(telegramToken, { polling: true });
 
-const client = new MongoClient(config.mongodb_url);
+const client = new MongoClient(config.mongodb.url);
 let db;
 
 let app = express();
@@ -138,7 +138,7 @@ let hourlyVaccineCount = (s, date, today) => {
 // Connect to MongoDB
 client.connect(err => {
     if (!err) {
-        db = client.db("vaccinelagao");
+        db = client.db(config.mongodb.dbName);
         console.log("Successfully connected to MongoDB.");
     }
 });
