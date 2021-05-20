@@ -2,6 +2,7 @@ const request = require("request");
 const TwitterBot = require("twitter");
 const moment = require("moment-timezone");
 const express = require("express");
+const { MongoClient } = require("mongodb");
 const TelegramBot = require('node-telegram-bot-api');
 
 let config = require("./config");
@@ -12,6 +13,9 @@ let twitter = new TwitterBot(config.twitter);
 // Setting telegram configuration
 let telegramToken = config.telegram.token;
 let telegram = new TelegramBot(telegramToken, { polling: true });
+
+const client = new MongoClient(config.mongodb_url);
+let db;
 
 let app = express();
 let telegram_msg = [];
@@ -64,7 +68,7 @@ let getVaccineDoses = () => {
                 activeSessions.forEach(s => {
                     if (s.available_capacity > 10)      // Inform twitter only if slots more than 10
                         informTwitter(s);
-                    informTelegram(s);
+                    informTelegram(s, date, today);
                 });
                 // if (earlyAlertDate != today) {
                 //     let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
@@ -83,7 +87,7 @@ let getVaccineDoses = () => {
 }
 
 // Get vaccine info in every few seconds
-// setInterval(getVaccineDoses, 10000 * 3);
+// setInterval(getVaccineDoses, 10000);
 setInterval(getVaccineDoses, 3000);
 
 // Informing twitter about vaccine
@@ -107,7 +111,7 @@ let bookAppointment = () => {
 }
 
 // Informing telegram about vaccine
-let informTelegram = (s) => {
+let informTelegram = (s, date, today) => {
     let msg = `${s.block_name} (${s.pincode})\nCenter: ${s.center}\nSlots available: ${s.available_capacity} of ${s.vaccine}\nDate: ${s.date}\nCoWin: https://selfregistration.cowin.gov.in`;
 
     // Check if same message is already sent
@@ -116,11 +120,28 @@ let informTelegram = (s) => {
 
         telegram.sendMessage(config.telegram.channel_id, msg).then(success => console.log("Message sent to telegram"))
             .catch(error => console.log("ERROR while sending message to telegram", error));
+
+        hourlyVaccineCount(s, date, today);     // Update no of vaccines per hour
     }
     else {
         console.log("Already sent this message to telegram");
     }
 }
+
+// Update no of vaccines per hour in DB
+let hourlyVaccineCount = (s, date, today) => {
+    let updateQuery = { "$push": {} };
+    updateQuery["$push"][date.format("HH")] = [s.pincode, s.available_capacity];
+    db.collection('stats').findOneAndUpdate({ date: today }, updateQuery, { upsert: true }, (err, stats) => console.log("DB Updated"));
+}
+
+// Connect to MongoDB
+client.connect(err => {
+    if (!err) {
+        db = client.db("vaccinelagao");
+        console.log("Successfully connected to MongoDB.");
+    }
+});
 
 // Run server
 app.listen(5000, () => {

@@ -10,5 +10,6 @@ module.exports = {
     telegram: {
         token: process.env.TELEGRAM_TOKEN,
         channel_id: process.env.TELEGRAM_CHANNEL_ID
-    }
+    },
+    mongodb_url: process.env.MONGODB_URL
 };
