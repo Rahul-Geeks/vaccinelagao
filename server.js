@@ -21,6 +21,7 @@ let app = express();
 let telegram_msg = [];
 
 let earlyAlertDate = "";        // Keep latest date of early alert message sent
+let twitterInformed = {};       // Keep daily info about informing twitter
 
 // Get the information if vaccine doses are available
 let getVaccineDoses = () => {
@@ -66,8 +67,10 @@ let getVaccineDoses = () => {
 
                 // Inform twitter and telegram users about vaccine availibility
                 activeSessions.forEach(s => {
-                    if (s.available_capacity > 10)      // Inform twitter only if slots more than 10
+                    if (s.available_capacity > 50 && twitterInformed[`${s.pincode}`] != today) {      // Inform twitter only if slots more than 50
                         informTwitter(s);
+                        twitterInformed[`${s.pincode}`] = today;
+                    }
                     informTelegram(s, date, today);
                 });
                 // if (earlyAlertDate != today) {
@@ -93,7 +96,7 @@ setInterval(getVaccineDoses, 3000);
 // Informing twitter about vaccine
 let informTwitter = (s) => {
     twitter.post('statuses/update', {
-        status: `Vaccine alert in ${s.block_name} ${s.pincode}, Hoshangabad district, MP. (18-44 age)\n${s.available_capacity} slots of ${s.vaccine} available at ${s.center} on ${s.date}.\nJoin telegram https://t.me/hbadvaccine to get alerts for #Hoshangabad district, MP #MPFightsCorona #CovidVaccine`
+        status: `Vaccine alert in ${s.block_name} ${s.pincode}\n${s.available_capacity} slots of ${s.vaccine} available at ${s.center} on ${s.date}.\nJoin telegram https://t.me/hbadvaccine to get alerts for #Hoshangabad district, MP #MPFightsCorona #CovidVaccine`
     }, (error, tweet, response) => {
         if (error)
             console.log("TWEET ERROR", error);
