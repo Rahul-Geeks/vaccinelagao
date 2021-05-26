@@ -146,6 +146,39 @@ client.connect(err => {
     }
 });
 
+// Aceept request for given headers
+app.use(function (req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+
+app.set('views', __dirname);
+app.engine('html', require('ejs').renderFile);
+app.set('view engine', 'ejs');
+
+app.use(express.json());
+
+// Create user document with email ID
+app.post("/email", (req, res) => {
+    if (!req.body.email)        // If no email sent
+        res.status(404).json({ message: 'Send Email' });
+    else if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(req.body.email))      // If invalid email sent
+        res.status(404).json({ message: 'Enter valid email address' });
+    else                        // Store user
+        db.collection("users").findOneAndUpdate({ email: req.body.email }, { "$set": req.body }, { upsert: true }, (error, response) => {
+            if (error)
+                res.status(500).json({ message: 'Error while storing Email-ID', error: error });
+            else
+                res.status(200).json(true);
+        });
+});
+
+// Render index.html when requested a home page
+app.get("/", (req, res) => {
+    res.render("index.html");
+});
+
 // Run server
 app.listen(5000, () => {
     console.log("App running on port 5000!")
