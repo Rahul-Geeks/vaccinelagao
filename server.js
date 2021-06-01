@@ -7,7 +7,6 @@ const nodemailer = require("nodemailer");
 const TelegramBot = require('node-telegram-bot-api');
 
 let config = require("./config");
-let data = require("./data.json");
 
 // Setting twitter configuration
 let twitter = new TwitterBot(config.twitter);
@@ -77,15 +76,25 @@ let getVaccineDoses = () => {
                 console.log("YES, FOUND AN ACTIVE SESSION", date.format('LT'));
                 console.log(activeSessions[0].session_id);
 
+                let emailHTML = '';
+
                 // Inform twitter, telegram and email users about vaccine availibility
                 activeSessions.forEach(s => {
-                    if (s.available_capacity > 50 && twitterInformed[`${s.pincode}`] != today) {      // Inform twitter only if slots more than 50
-                        informTwitter(s);
-                        twitterInformed[`${s.pincode}`] = today;
+                    if (s.available_capacity > 50) {      // Inform twitter only if slots more than 50
+                        if (twitterInformed[`${s.pincode}`] != today) {
+                            informTwitter(s);
+                            twitterInformed[`${s.pincode}`] = today;
+                        }
+
+                        // Set email HTML message
+                        emailHTML = emailHTML + `<b>Center</b>: ${s.center}<br><b>Pincode</b>: ${s.pincode}<br><b>Slots available</b>: ${s.available_capacity} of ${s.vaccine}<br><b>Date</b>: ${s.date}<br><br>`;
                     }
                     informTelegram(s, date, today);
-                    sendMail(s.available_capacity, s.center, s.date);
                 });
+
+                // Inform on Email
+                if (emailHTML && emailHTML != '')
+                    sendMail(emailHTML);
                 // if (earlyAlertDate != today) {
                 //     let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
                 //     telegram.sendMessage(config.telegram.channel_id, msg);
@@ -144,31 +153,32 @@ let informTelegram = (s, date, today) => {
     }
 }
 
-// Send email notifications to users
-let sendMail = (capacity, centerName, date) => {
+/**
+ * Send email notifications to users
+ * @param {string} emailHTML 
+ */
+let sendMail = (emailHTML) => {
+    db.collection("users").find({}, { email: 1 }).toArray((error, users) => {               // Get user details from DB
+        if (error)
+            console.log("Error while getting user details to sent email vaccine alert");
+        else {
 
-    // HTML message
-    let msgHTML = `<h1>Vaccination slots alert (18-44 age) for Hoshangabad, M.P 461001.</h1><br>
-    Center: ${centerName}<br>
-    Slots available: ${capacity}<br>
-    Date: ${date}<br>
-    CoWin: https://selfregistration.cowin.gov.in`;
+            // Design Email message
+            emailHTML = '<h1>Vaccination slots alert (18-44 age) for Hoshangabad district, M.P.</h1><br>' + emailHTML + 'CoWin: https://selfregistration.cowin.gov.in <br>Join Telegram Channel to get instant alerts: <a href="https://t.me/hbadvaccine">HBad Vaccine Alerts</a><br><br><a href="">Unsubscribe</a>';
 
-    // Check if same email messsage is not already sent
-    if (!messages.includes(msgHTML)) {
-        messages.push(msgHTML);     // Add message to the message list
+            console.log("MSG HTML", emailHTML);
 
-        // Send mail
-        transport.sendMail({
-            from: '"Rahul Chouhan" <rahul.testing12@gmail.com>', // sender address
-            to: JSON.stringify(data.user_emails), // list of receivers
-            subject: "Vaccination Alert", // Subject line
-            html: msgHTML, // html body
-        }, (error, result) => console.log("ERROR", error, "EMAIL SENT TO", result.accepted));
-    }
-    else {
-        console.log("Already sent this message to Email");
-    }
+            let userEmails = users.map(u => u.email);                   // Get emails from all users
+
+            // Send mail
+            transport.sendMail({
+                from: '"Rahul Chouhan" <rahul.testing12@gmail.com>',    // sender address
+                to: JSON.stringify(userEmails),                         // list of receivers
+                subject: "Vaccination Alert",                           // Subject line
+                html: emailHTML,                                        // html body
+            }, (error, result) => console.log("ERROR", error, "EMAIL SENT TO", result.accepted));
+        }
+    });
 }
 
 // Update no of vaccines per hour in DB
