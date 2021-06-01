@@ -14,5 +14,9 @@ module.exports = {
     mongodb: {
         url: process.env.MONGODB_URL,
         dbName: process.env.DB_NAME
+    },
+    email: {
+        user: process.env.EMAIL_ID,
+        pwd: process.env.EMAIL_PWD
     }
 };
