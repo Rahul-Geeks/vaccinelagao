@@ -100,7 +100,7 @@
                 };
 
                 // Send POST API request to save user email
-                fetch('http://localhost:5000/email', params).then(response => {
+                fetch('/email', params).then(response => {
                     if (response.ok) {
                         console.log("Success", response.json());
                         document.getElementById("email-success").innerText = "Saved";       // Inform user that email is saved

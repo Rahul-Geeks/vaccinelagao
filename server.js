@@ -5,6 +5,7 @@ const express = require("express");
 const { MongoClient } = require("mongodb");
 const nodemailer = require("nodemailer");
 const TelegramBot = require('node-telegram-bot-api');
+const crypto = require("crypto");
 
 let config = require("./config");
 
@@ -112,8 +113,8 @@ let getVaccineDoses = () => {
 }
 
 // Get vaccine info in every few seconds
-// setInterval(getVaccineDoses, 10000);
 setInterval(getVaccineDoses, 3000);
+// getVaccineDoses();
 
 // Informing twitter about vaccine
 let informTwitter = (s) => {
@@ -158,35 +159,58 @@ let informTelegram = (s, date, today) => {
  * @param {string} emailHTML 
  */
 let sendMail = (emailHTML) => {
-    db.collection("users").find({}, { email: 1 }).toArray((error, users) => {               // Get user details from DB
-        if (error)
-            console.log("Error while getting user details to sent email vaccine alert");
-        else {
+    try {
+        db.collection("users").find({}, { email: 1 }).toArray((error, users) => {               // Get user details from DB
+            if (error)
+                console.log("Error while getting user details to sent email vaccine alert");
+            else {
 
-            // Design Email message
-            emailHTML = '<h1>Vaccination slots alert (18-44 age) for Hoshangabad district, M.P.</h1><br>' + emailHTML + 'CoWin: https://selfregistration.cowin.gov.in <br>Join Telegram Channel to get instant alerts: <a href="https://t.me/hbadvaccine">HBad Vaccine Alerts</a><br><br><a href="">Unsubscribe</a>';
+                users.forEach(user => {                         // Send email to all users
 
-            console.log("MSG HTML", emailHTML);
+                    let hash = genEmailHash(user.email);        // Generate Email hash
 
-            let userEmails = users.map(u => u.email);                   // Get emails from all users
+                    // Design Email message
+                    emailHTML = '<h1>Vaccination slots alert (18-44 age) for Hoshangabad district, M.P.</h1><br>' + emailHTML + `CoWin: https://selfregistration.cowin.gov.in <br>Join Telegram Channel to get instant alerts: <a href="https://t.me/hbadvaccine">HBad Vaccine Alerts</a><br><br><a href="http://${config.server.host}:5000/unsubscribe?email=${user.email}&&hash=${hash}">Unsubscribe</a>`;
 
-            // Send mail
-            transport.sendMail({
-                from: '"Rahul Chouhan" <rahul.testing12@gmail.com>',    // sender address
-                to: JSON.stringify(userEmails),                         // list of receivers
-                subject: "Vaccination Alert",                           // Subject line
-                html: emailHTML,                                        // html body
-            }, (error, result) => console.log("ERROR", error, "EMAIL SENT TO", result.accepted));
-        }
-    });
+                    // Send mail
+                    transport.sendMail({
+                        from: '"Rahul Chouhan" <rahul.testing12@gmail.com>',    // sender address
+                        to: JSON.stringify(user.email),                         // list of receivers
+                        subject: "Vaccination Alert",                           // Subject line
+                        html: emailHTML,                                        // html body
+                    }, (error, result) => console.log("ERROR", error, "EMAIL SENT TO", result.accepted));
+                });
+            }
+        });
+    }
+    catch (error) {
+        console.log("ERROR WHILE UNSUBSCRIBE", error);
+    }
 }
 
-// Update no of vaccines per hour in DB
+/**
+ * Update no of vaccines per hour in DB
+ * @param {object} s Session object
+ * @param {Date} date Today's date
+ * @param {string} today Formatted date
+ */
 let hourlyVaccineCount = (s, date, today) => {
-    let updateQuery = { "$push": {} };
-    updateQuery["$push"][date.format("HH")] = [s.pincode, s.available_capacity];
-    db.collection('stats').findOneAndUpdate({ date: today }, updateQuery, { upsert: true }, (err, stats) => console.log("DB Updated"));
+    try {
+        let updateQuery = { "$push": {} };
+        updateQuery["$push"][date.format("HH")] = [s.pincode, s.available_capacity];
+        db.collection('stats').findOneAndUpdate({ date: today }, updateQuery, { upsert: true }, (err, stats) => console.log("DB Updated"));
+    }
+    catch (error) {
+        console.log("ERROR WHILE UNSUBSCRIBE", error);
+    }
 }
+
+/**
+ * Get encrypted email hash
+ * @param {string} email User email
+ * @returns Encrypted string
+ */
+let genEmailHash = (email) => crypto.createHmac('sha256', config.email.secret).update(email).digest('hex');
 
 // Connect to MongoDB
 client.connect(err => {
@@ -194,6 +218,8 @@ client.connect(err => {
         db = client.db(config.mongodb.dbName);
         console.log("Successfully connected to MongoDB.");
     }
+    else
+        console.log("ERROR WHILE CONNECTING TO MONGODB", err);
 });
 
 // Aceept request for given headers
@@ -215,18 +241,53 @@ app.post("/email", (req, res) => {
         res.status(404).json({ message: 'Send Email' });
     else if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/.test(req.body.email))      // If invalid email sent
         res.status(404).json({ message: 'Enter valid email address' });
-    else                        // Store user
-        db.collection("users").findOneAndUpdate({ email: req.body.email }, { "$set": req.body }, { upsert: true }, (error, response) => {
-            if (error)
-                res.status(500).json({ message: 'Error while storing Email-ID', error: error });
-            else
-                res.status(200).json(true);
-        });
+    else {                        // Store user
+        try {
+            // Add user
+            db.collection("users").findOneAndUpdate({ email: req.body.email }, { "$set": req.body }, { upsert: true }, (error, response) => {
+                if (error)
+                    res.status(500).json({ message: 'Error while storing Email-ID', error: error });
+                else
+                    res.status(200).json(true);
+            });
+        }
+        catch (error) {
+            console.log("ERROR WHILE UNSUBSCRIBE", error);
+            res.status(500).json({ message: 'Some error occurred' });
+        }
+    }
 });
 
 // Render index.html when requested a home page
-app.get("/", (req, res) => {
-    res.render("index.html");
+app.get("/", (req, res) => res.render("index.html"));
+
+// Render unsubscribe.html when requested for unsubscribe page
+app.get("/unsubscribe", (req, res) => res.render("unsubscribe.html"));
+
+// Delete user details
+app.delete("/unsubscribe", (req, res) => {
+    if (req.body.email && req.body.hash) {                  // Check if params exists
+        let genHash = genEmailHash(req.body.email);         // Generate hash with email
+
+        if (genHash == req.body.hash) {                     // Verify email
+            try {
+                db.collection("users").deleteOne({ email: req.body.email }, (error, result) => {        // Delete user details
+                    if (!error && result.deletedCount == 1)
+                        res.status(200).json(true);
+                    else {
+                        console.log("Some error occurred", error);
+                        res.status(500).json({ message: 'Some error occurred' });
+                    }
+                });
+            }
+            catch (error) {
+                console.log("ERROR WHILE UNSUBSCRIBE", error);
+                res.status(500).json({ message: 'Some error occurred' });
+            }
+        } else
+            res.status(404).json(false);
+    } else
+        res.status(404).json({ message: 'Email ID is not sent' });
 });
 
 // Run server
