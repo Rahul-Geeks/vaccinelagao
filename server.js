@@ -42,7 +42,7 @@ let getVaccineDoses = () => {
 
     // Make a request to CoWin server
     request({
-        uri: "https://cdn-api.co-vin.in/api/v2/appointment/sessions/calendarByDistrict",
+        uri: "https://cdn-api.co-vin.in/api/v2/appointment/sessions/public/calendarByDistrict",
         method: "GET",
         qs: {
             district_id: "360",     // Hoshangabad district ID
@@ -55,56 +55,63 @@ let getVaccineDoses = () => {
         else if (body && body != "Unauthenticated access!") {
             let activeSessions = [];
 
-            // Get all sessions with age 18+ and available vaccines
-            JSON.parse(body).centers.forEach(center => {
-                let filSessions = center.sessions.filter(session => {
-                    // if (session.min_age_limit == 18 && session.available_capacity == 0) {
-                    if (session.min_age_limit == 18 && session.available_capacity > 0) {
-                        session.center = center.name;
-                        session.pincode = center.pincode;
-                        session.block_name = center.block_name;
-                        return session;
-                    }
-                });
-
-                if (filSessions[0])
-                    activeSessions = activeSessions.concat(filSessions);
-            });
-            console.log("\n", activeSessions);
-
-            // If atleast one session found
-            if (activeSessions[0]) {
-                console.log("YES, FOUND AN ACTIVE SESSION", date.format('LT'));
-                console.log(activeSessions[0].session_id);
-
-                let emailHTML = '';
-
-                // Inform twitter, telegram and email users about vaccine availibility
-                activeSessions.forEach(s => {
-                    if (s.available_capacity > 50) {      // Inform twitter only if slots more than 50
-                        if (twitterInformed[`${s.pincode}`] != today) {
-                            informTwitter(s);
-                            twitterInformed[`${s.pincode}`] = today;
+            try {
+                // Get all sessions with age 18+ and available vaccines
+                JSON.parse(body).centers.forEach(center => {
+                    let filSessions = center.sessions.filter(session => {
+                        // if (session.min_age_limit == 18 && session.available_capacity == 0) {
+                        if (session.min_age_limit == 18 && session.available_capacity > 0) {
+                            session.center = center.name;
+                            session.pincode = center.pincode;
+                            session.block_name = center.block_name;
+                            return session;
                         }
+                    });
 
-                        // Set email HTML message
-                        emailHTML = emailHTML + `<b>Center</b>: ${s.center}<br><b>Pincode</b>: ${s.pincode}<br><b>Slots available</b>: ${s.available_capacity} of ${s.vaccine}<br><b>Date</b>: ${s.date}<br><br>`;
-                    }
-                    informTelegram(s, date, today);
+                    if (filSessions[0])
+                        activeSessions = activeSessions.concat(filSessions);
                 });
 
-                // Inform on Email
-                if (emailHTML && emailHTML != '')
-                    sendMail(emailHTML);
-                // if (earlyAlertDate != today) {
-                //     let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
-                //     telegram.sendMessage(config.telegram.channel_id, msg);
-                //     earlyAlertDate = today;
-                //     console.log("Sending early alert", earlyAlertDate);
-                // }
+                // If atleast one session found
+                if (activeSessions[0]) {
+                    console.log("YES, FOUND AN ACTIVE SESSION", date.format('LT'));
+                    console.log(activeSessions[0].session_id);
+
+                    let emailHTML = '';
+
+                    // Inform twitter, telegram and email users about vaccine availibility
+                    activeSessions.forEach(s => {
+                        if (s.available_capacity > 50) {      // Inform twitter only if slots more than 50
+                            if (twitterInformed[`${s.pincode}`] != today) {
+                                informTwitter(s);
+                                twitterInformed[`${s.pincode}`] = today;
+                            }
+                            else
+                                console.log("ALREADY TWEETED FOR THIS PINCODE TODAY");
+
+                            // Set email HTML message
+                            emailHTML = emailHTML + `<b>Center</b>: ${s.center}<br><b>Pincode</b>: ${s.pincode}<br><b>Total slots</b>: ${s.available_capacity} (<b>Dose 1</b>: ${s.available_capacity_dose1} & <b>Dose 2</b>: ${s.available_capacity_dose2}) of ${s.vaccine}<br><b>Date</b>: ${s.date}<br><br>`;
+                        }
+                        informTelegram(s, date, today);
+                    });
+
+                    // Inform on Email
+                    if (emailHTML && emailHTML != '')
+                        sendMail(emailHTML);
+
+                    // if (earlyAlertDate != today) {
+                    //     let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
+                    //     telegram.sendMessage(config.telegram.channel_id, msg);
+                    //     earlyAlertDate = today;
+                    //     console.log("Sending early alert", earlyAlertDate);
+                    // }
+                }
+                else {
+                    console.log("NOT AVAILABLE", date.format('LT'));
+                }
             }
-            else {
-                console.log("NOT AVAILABLE", date.format('LT'));
+            catch (error) {
+                console.log("ERROR IN GETVACCINEDOSES METHOD", error, body);
             }
         }
         else
@@ -119,7 +126,7 @@ setInterval(getVaccineDoses, 3000);
 // Informing twitter about vaccine
 let informTwitter = (s) => {
     twitter.post('statuses/update', {
-        status: `Vaccine alert in ${s.block_name} ${s.pincode}\n${s.available_capacity} slots of ${s.vaccine} available at ${s.center} on ${s.date}.\nJoin telegram https://t.me/hbadvaccine to get alerts for #Hoshangabad district, MP #MPFightsCorona #CovidVaccine`
+        status: `Vaccine alert in ${s.block_name} ${s.pincode}\nTotal slots: ${s.available_capacity} (Dose 1: ${s.available_capacity_dose1} & Dose 2: ${s.available_capacity_dose2}) slots of ${s.vaccine} available at ${s.center} on ${s.date}.\nJoin telegram https://t.me/hbadvaccine to get alerts for #Hoshangabad district, MP #MPFightsCorona #CovidVaccine`
     }, (error, tweet, response) => {
         if (error)
             console.log("TWEET ERROR", error);
@@ -138,7 +145,7 @@ let bookAppointment = () => {
 
 // Informing telegram about vaccine
 let informTelegram = (s, date, today) => {
-    let msg = `${s.block_name} (${s.pincode})\nCenter: ${s.center}\nSlots available: ${s.available_capacity} of ${s.vaccine}\nDate: ${s.date}\nCoWin: https://selfregistration.cowin.gov.in`;
+    let msg = `${s.block_name} (${s.pincode})\nCenter: ${s.center}\nTotal slots: ${s.available_capacity} of ${s.vaccine}\n(Dose 1: ${s.available_capacity_dose1} & Dose 2: ${s.available_capacity_dose2})\nDate: ${s.date}\nCoWin: https://selfregistration.cowin.gov.in`;
 
     // Check if same message is already sent
     if (!messages.includes(msg)) {
@@ -164,20 +171,21 @@ let sendMail = (emailHTML) => {
             if (error)
                 console.log("Error while getting user details to sent email vaccine alert");
             else {
+                emailHTML = '<h1>Vaccination slots alert (18-44 age) for Hoshangabad district, M.P.</h1><br>' + emailHTML;
 
                 users.forEach(user => {                         // Send email to all users
 
                     let hash = genEmailHash(user.email);        // Generate Email hash
 
                     // Design Email message
-                    emailHTML = '<h1>Vaccination slots alert (18-44 age) for Hoshangabad district, M.P.</h1><br>' + emailHTML + `CoWin: https://selfregistration.cowin.gov.in <br>Join Telegram Channel to get instant alerts: <a href="https://t.me/hbadvaccine">HBad Vaccine Alerts</a><br><br><a href="http://${config.server.host}:5000/unsubscribe?email=${user.email}&&hash=${hash}">Unsubscribe</a>`;
+                    let msgHTML = emailHTML + `CoWin: https://selfregistration.cowin.gov.in <br>Join Telegram Channel to get instant alerts: <a href="https://t.me/hbadvaccine">HBad Vaccine Alerts</a><br><br><a href="http://${config.server.host}:5000/unsubscribe?email=${user.email}&&hash=${hash}">Unsubscribe</a>`;
 
                     // Send mail
                     transport.sendMail({
                         from: '"Rahul Chouhan" <rahul.testing12@gmail.com>',    // sender address
                         to: JSON.stringify(user.email),                         // list of receivers
                         subject: "Vaccination Alert",                           // Subject line
-                        html: emailHTML,                                        // html body
+                        html: msgHTML,                                          // html body
                     }, (error, result) => console.log("ERROR", error, "EMAIL SENT TO", result.accepted));
                 });
             }
