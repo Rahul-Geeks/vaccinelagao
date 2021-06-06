@@ -160,9 +160,9 @@ let informTelegram = (s, date, today) => {
         messages.push(msg);     // Keep the track of messages so that same message don't sent again
 
         telegram.sendMessage(config.telegram.channel_id, msg).then(success => console.log("Message sent to telegram"))
-            .catch(error => console.log("ERROR while sending message to telegram", error));
+            .catch(error => console.log("ERROR while sending message to telegram"));
 
-        hourlyVaccineCount(s, date, today);     // Update no of vaccines per hour
+        storeVaccineAlerts(s, date, today);     // Update no of vaccines per hour
     }
     else {
         console.log("Already sent this message to telegram");
@@ -210,10 +210,22 @@ let sendMail = (emailHTML) => {
  * @param {Date} date Today's date
  * @param {string} today Formatted date
  */
-let hourlyVaccineCount = (s, date, today) => {
+let storeVaccineAlerts = (s, date, today) => {
     try {
-        let updateQuery = { "$push": {} };
-        updateQuery["$push"][date.format("HH")] = [s.pincode, s.available_capacity];
+        let updateQuery = {
+            $push: {
+                details: {
+                    pincode: s.pincode,
+                    time: new Date(),
+                    appointment_date: s.date,
+                    available_capacity: s.available_capacity,
+                    vaccine: s.vaccine,
+                    available_capacity_dose1: s.available_capacity_dose1,
+                    available_capacity_dose2: s.available_capacity_dose2,
+                    center: s.center
+                }
+            }
+        }
         db.collection('stats').findOneAndUpdate({ date: today }, updateQuery, { upsert: true }, (err, stats) => console.log("DB Updated"));
     }
     catch (error) {
