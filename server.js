@@ -77,7 +77,7 @@ let getVaccineDoses = () => {
                     console.log("YES, FOUND AN ACTIVE SESSION", date.format('LT'));
                     console.log(activeSessions[0].session_id);
 
-                    let emailHTML = '';
+                    // let emailHTML = '';
 
                     // Inform twitter, telegram and email users about vaccine availibility
                     activeSessions.forEach(s => {
@@ -90,14 +90,14 @@ let getVaccineDoses = () => {
                                 console.log("ALREADY TWEETED FOR THIS PINCODE TODAY");
 
                             // Set email HTML message
-                            emailHTML = emailHTML + `<b>Center</b>: ${s.center}<br><b>Pincode</b>: ${s.pincode}<br><b>Total slots</b>: ${s.available_capacity} (<b>Dose 1</b>: ${s.available_capacity_dose1} & <b>Dose 2</b>: ${s.available_capacity_dose2}) of ${s.vaccine}<br><b>Date</b>: ${s.date}<br><br>`;
+                            // emailHTML = emailHTML + `<b>Center</b>: ${s.center}<br><b>Pincode</b>: ${s.pincode}<br><b>Total slots</b>: ${s.available_capacity} (<b>Dose 1</b>: ${s.available_capacity_dose1} & <b>Dose 2</b>: ${s.available_capacity_dose2}) of ${s.vaccine}<br><b>Date</b>: ${s.date}<br><br>`;
                         }
                         informTelegram(s, date, today);
                     });
 
                     // Inform on Email
-                    if (emailHTML && emailHTML != '')
-                        sendMail(emailHTML);
+                    // if (emailHTML && emailHTML != '')
+                    //     sendMail(emailHTML);
 
                     // if (earlyAlertDate != today) {
                     //     let msg = `A message to Hoshangabadis -\nVaccine availability is updated at nearby place in our district just now. Chances are it can be updated for your place in next few minutes (15-20). So, be ready.\n\nहमारे जिले में पास में ही अभी-अभी टीके की जानकारी उपलब्ध कराई गयी है। संभावना है कि आपके यहां कुछ ही मिनटों (15-20) में अपडेट कराया जा सकता है। तैयार रहें।`;
@@ -146,6 +146,14 @@ let bookAppointment = () => {
 // Informing telegram about vaccine
 let informTelegram = (s, date, today) => {
     let msg = `${s.block_name} (${s.pincode})\nCenter: ${s.center}\nTotal slots: ${s.available_capacity} of ${s.vaccine}\n(Dose 1: ${s.available_capacity_dose1} & Dose 2: ${s.available_capacity_dose2})\nDate: ${s.date}\nCoWin: https://selfregistration.cowin.gov.in`;
+
+    // Add if Dose 1/2/both available in alert message
+    if (s.available_capacity_dose1 && s.available_capacity_dose2)
+        msg = 'Dose 1 & 2\n' + msg;
+    else if (s.available_capacity_dose1)
+        msg = 'Dose 1 only\n' + msg;
+    else
+        msg = 'Dose 2 only\n' + msg;
 
     // Check if same message is already sent
     if (!messages.includes(msg)) {
@@ -301,4 +309,4 @@ app.delete("/unsubscribe", (req, res) => {
 // Run server
 app.listen(5000, () => {
     console.log("App running on port 5000!")
-})
+});
